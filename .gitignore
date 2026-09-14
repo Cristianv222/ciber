@@ -1,0 +1,39 @@
+# Archivos de Entorno
+.env
+.env.*
+!.env.example
+
+# Claves y Certificados
+*.key
+*.pem
+
+# Directorios de datos locales (Volúmenes de Docker / Persistencia)
+pgdata/
+grafanadata/
+
+# Capturas de Red y Datasets
+*.pcap
+*.csv
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+.env/
+
+# Node / Frontend (Fases futuras)
+node_modules/
+
+# Modelos y Artefactos de Machine Learning
+*.pkl
+*.h5
+*.joblib
+
+# Configuraciones de IDE y Sistema Operativo
+.vscode/
+.idea/
+.DS_Store
