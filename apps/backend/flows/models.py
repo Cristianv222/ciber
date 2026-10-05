@@ -11,6 +11,14 @@ class Flow(models.Model):
     protocol = models.IntegerField()
     label = models.CharField(max_length=50, default='unlabeled')
 
+    # Resultados del pipeline autónomo (poblados por los agentes SPADE vía API)
+    attack_type = models.CharField(max_length=50, null=True, blank=True)          # Detector
+    confidence = models.FloatField(null=True, blank=True)                         # Detector
+    detector_stage = models.CharField(max_length=30, null=True, blank=True)       # xgboost / cnn_lstm / autoencoder
+    cvss_score = models.FloatField(null=True, blank=True)                         # Decision (CVSS v4.0)
+    action_taken = models.CharField(max_length=100, null=True, blank=True)        # Response
+    processed_at = models.DateTimeField(null=True, blank=True)                    # Marca de procesamiento del pipeline
+
     # Métricas de duración y volúmenes
     flow_duration = models.BigIntegerField(null=True, blank=True)
     total_fwd_packets = models.BigIntegerField(null=True, blank=True)

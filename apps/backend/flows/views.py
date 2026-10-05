@@ -74,3 +74,50 @@ class HoneypotEventViewSet(viewsets.ModelViewSet):
             'top_attackers': top_attackers,
             'services_targeted': services
         })
+
+    @action(detail=False, methods=['get'])
+    def geo(self, request):
+        """Ataques del honeypot geolocalizados (para el mapa/globo mundial).
+
+        Agrega por ubicación (lat/lon) e incluye el país. El `target` es la
+        ubicación del honeypot, destino de los arcos."""
+        import os
+        from .geo import locate
+
+        rows = HoneypotEvent.objects.values('attacker_ip').annotate(total=Count('id'))
+        points = {}
+        for row in rows:
+            ip = str(row['attacker_ip'])
+            loc = locate(ip)
+            if not loc:
+                continue
+            key = (round(loc['lat'], 2), round(loc['lon'], 2))
+            if key not in points:
+                points[key] = {
+                    'lat': loc['lat'], 'lon': loc['lon'],
+                    'country': loc['country'], 'country_code': loc['country_code'],
+                    'city': loc['city'], 'total': 0, 'ips': [],
+                }
+            points[key]['total'] += row['total']
+            if len(points[key]['ips']) < 20:
+                points[key]['ips'].append(ip)
+
+        by_country = {}
+        for p in points.values():
+            c = p['country'] or 'Desconocido'
+            by_country[c] = by_country.get(c, 0) + p['total']
+        countries = sorted(
+            [{'country': k, 'total': v} for k, v in by_country.items()],
+            key=lambda x: -x['total'],
+        )
+
+        target = {
+            'lat': float(os.environ.get('HONEYPOT_LAT', '-0.1807')),
+            'lon': float(os.environ.get('HONEYPOT_LON', '-78.4678')),
+            'label': os.environ.get('HONEYPOT_LABEL', 'Honeypot (Ecuador)'),
+        }
+        return Response({
+            'points': list(points.values()),
+            'countries': countries,
+            'target': target,
+        })

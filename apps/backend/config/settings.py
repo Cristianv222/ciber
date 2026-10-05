@@ -12,6 +12,11 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
+# Orígenes de confianza para CSRF (necesario para el admin sobre HTTPS en producción)
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()
+]
+
 # Application definition
 INSTALLED_APPS = [
     'daphne',
@@ -24,6 +29,7 @@ INSTALLED_APPS = [
 
     # Third party apps
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
     'channels',
 
@@ -112,10 +118,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50,
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
 }
 
-# CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS Configuration (configurable por entorno; en producción se acota)
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in ('true', '1', 'yes')
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()
+]

@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # Claves y Certificados
 *.key
@@ -32,6 +33,10 @@ node_modules/
 *.pkl
 *.h5
 *.joblib
+
+# Bases de datos GeoIP (grandes; se descargan aparte, ver infra/geoip/README.md)
+*.mmdb
+*.mmdb.gz
 
 # Configuraciones de IDE y Sistema Operativo
 .vscode/

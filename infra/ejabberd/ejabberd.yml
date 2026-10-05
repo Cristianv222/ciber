@@ -1,0 +1,103 @@
+# =============================================================================
+# CONFIGURACIÓN DE EJABBERD — Servidor XMPP para los agentes SPADE
+# Proyecto de Tesis - Sistema Autónomo de Monitoreo de Red
+# =============================================================================
+#
+# El dominio XMPP es "ejabberd" (el nombre del servicio en docker-compose), de
+# modo que la resolución DNS interna de Docker permita a los agentes conectarse
+# usando JIDs del tipo:  detector@ejabberd, decision@ejabberd, response@ejabberd
+#
+# Los usuarios se registran automáticamente en el primer arranque mediante la
+# variable CTL_ON_CREATE del compose. También pueden registrarse a mano
+# (ver README, sección "Registro de usuarios XMPP").
+# =============================================================================
+
+hosts:
+  - "ejabberd"
+
+loglevel: info
+
+# En primer arranque, la imagen ejabberd/ecs genera un certificado autofirmado
+# en /home/ejabberd/conf/. Para desarrollo local basta; los agentes SPADE se
+# conectan con verify_security=False.
+certfiles:
+  - /home/ejabberd/conf/server.pem
+
+listen:
+  -
+    port: 5222
+    ip: "::"
+    module: ejabberd_c2s
+    max_stanza_size: 262144
+    shaper: c2s_shaper
+    access: c2s
+    # STARTTLS desactivado: el NIF nativo fast_tls de ejabberd es inestable bajo
+    # emulación amd64 en Apple Silicon. La mensajería entre agentes va por la red
+    # interna de Docker. En la máquina de la U (amd64 nativo) puede ponerse en true.
+    starttls: false
+  -
+    port: 5280
+    ip: "::"
+    module: ejabberd_http
+    request_handlers:
+      /admin: ejabberd_web_admin
+      /api: mod_http_api
+
+auth_method: internal
+
+acl:
+  admin:
+    user:
+      - "admin@ejabberd"
+  local:
+    user_regexp: ""
+
+access_rules:
+  local:
+    allow: local
+  c2s:
+    deny: blocked
+    allow: all
+  configure:
+    allow: admin
+
+api_permissions:
+  "console commands":
+    from:
+      - ejabberd_ctl
+    who: all
+    what: "*"
+
+shaper:
+  normal:
+    rate: 3000
+    burst_size: 20000
+  fast: 100000
+
+shaper_rules:
+  max_user_sessions: 10
+  c2s_shaper:
+    none: admin
+    normal: all
+
+modules:
+  mod_adhoc: {}
+  mod_admin_extra: {}
+  mod_caps: {}
+  mod_carboncopy: {}
+  mod_client_state: {}
+  mod_configure: {}
+  mod_disco: {}
+  mod_last: {}
+  mod_offline:
+    access_max_user_messages: 5000
+  mod_ping: {}
+  mod_privacy: {}
+  mod_private: {}
+  mod_roster:
+    versioning: true
+  mod_shared_roster: {}
+  mod_stream_mgmt: {}
+  mod_time: {}
+  mod_vcard: {}
+  mod_version: {}

@@ -30,6 +30,29 @@ services:
       timeout: 5s
       retries: 5
 
+  # Servidor XMPP (Prosody). El dominio sigue siendo "ejabberd" (alias de red)
+  # para no cambiar los JIDs de los agentes. Los usuarios se registran con
+  # prosodyctl (ver README / scripts/register_xmpp_users.sh).
+  xmpp:
+    image: prosody/prosody:latest
+    container_name: ciber_xmpp
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - ejabberd
+    ports:
+      - "5222:5222"   # XMPP c2s (clientes / agentes SPADE)
+    volumes:
+      - ./infra/prosody/prosody.cfg.lua:/etc/prosody/prosody.cfg.lua:ro
+      - prosodydata:/var/lib/prosody
+    healthcheck:
+      test: ["CMD-SHELL", "prosodyctl status || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
   grafana:
     image: grafana/grafana:latest
     container_name: ciber_grafana
@@ -72,14 +95,190 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      # Lectura de metadatos de modelos + lanzamiento del entrenamiento
+      MODELS_DIR: /models
+      MODELS_VOLUME: ${COMPOSE_PROJECT_NAME:-ciber}_models
+      DOCKER_NETWORK: ${COMPOSE_PROJECT_NAME:-ciber}_default
+      TRAINER_IMAGE: ${COMPOSE_PROJECT_NAME:-ciber}-trainer
+      HOST_PROJECT_DIR: ${PWD}
+      TRAIN_EPOCHS: ${TRAIN_EPOCHS:-15}
+      TRAIN_BATCH_SIZE: ${TRAIN_BATCH_SIZE:-256}
+      TRAIN_AE_PERCENTILE: ${TRAIN_AE_PERCENTILE:-99}
+      # Geolocalización (mapa de ataques) + ubicación del honeypot (destino de arcos)
+      GEOIP_DB: /geoip/dbip-city-lite.mmdb
+      HONEYPOT_LAT: ${HONEYPOT_LAT:--0.1807}
+      HONEYPOT_LON: ${HONEYPOT_LON:--78.4678}
+      HONEYPOT_LABEL: ${HONEYPOT_LABEL:-Honeypot (Ecuador)}
     volumes:
       - ./apps/backend:/app
+      - models:/models:ro
+      - ./infra/geoip:/geoip:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
+  # Capa 2 — Ingesta. Perfil "ingest": no arranca con el stack base.
+  #   Local (Mac):  docker compose run --rm cicflowmeter python main.py --mode pcap --pcap /data/pcap/muestra.pcap
+  #   Universidad:  docker compose --profile ingest up -d cicflowmeter   (captura el SPAN)
+  cicflowmeter:
+    build:
+      context: ./apps/cicflowmeter
+      dockerfile: Dockerfile
+    container_name: ciber_cicflowmeter
+    restart: unless-stopped
+    profiles: ["ingest"]
+    network_mode: host          # necesario para ver la interfaz del SPAN (Linux/AlmaLinux)
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      CAPTURE_MODE: ${CAPTURE_MODE:-live}
+      SPAN_INTERFACE: ${SPAN_INTERFACE:-eth0}
+      PCAP_FILE: ${PCAP_FILE:-}
+      INGEST_MODE: ${INGEST_MODE:-api}
+      # En network_mode host, backend y postgres se alcanzan por localhost del host:
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
+      POSTGRES_HOST: ${INGEST_DB_HOST:-localhost}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      FLOW_TIMEOUT: ${FLOW_TIMEOUT:-120}
+      ACTIVITY_TIMEOUT: ${ACTIVITY_TIMEOUT:-5}
+    volumes:
+      - ./data/pcap:/data/pcap:ro
+
+  # Fase 2 — Entrenamiento de modelos ML. Perfil "training": corre a demanda.
+  #   docker compose --profile training run --rm trainer
+  # Los artefactos quedan en el volumen `models`, que el detector (Fase 3) monta.
+  trainer:
+    build:
+      context: ./models
+      dockerfile: Dockerfile
+    container_name: ciber_trainer
+    profiles: ["training"]
+    environment:
+      DATASET_PATH: ${DATASET_PATH:-/data/datasets}
+      OUT_DIR: /models
+      TEST_SIZE: ${TRAIN_TEST_SIZE:-0.2}
+      EPOCHS: ${TRAIN_EPOCHS:-15}
+      BATCH_SIZE: ${TRAIN_BATCH_SIZE:-256}
+      AE_PERCENTILE: ${TRAIN_AE_PERCENTILE:-99}
+    volumes:
+      - models:/models
+      - ./data/datasets:/data/datasets:ro
+
+  # Fase 3 — Agente detector SPADE. Perfil "agents".
+  #   Requiere modelos entrenados (Fase 2) en el volumen `models`.
+  #   docker compose --profile agents up -d detector
+  detector:
+    build:
+      context: ./apps/detector
+      dockerfile: Dockerfile
+    container_name: ciber_detector
+    restart: unless-stopped
+    profiles: ["agents"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      xmpp:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      API_BASE_URL: ${DETECTOR_API_BASE_URL:-http://backend:8000}
+      DETECTOR_JID: ${DETECTOR_JID:-detector@ejabberd}
+      DECISION_JID: ${DECISION_JID:-decision@ejabberd}
+      XMPP_DETECTOR_PASSWORD: ${XMPP_DETECTOR_PASSWORD}
+      XMPP_DISABLE_TLS: ${XMPP_DISABLE_TLS:-true}
+      MODELS_DIR: /models
+      POLL_INTERVAL: ${DETECTOR_POLL_INTERVAL:-5}
+      BATCH_SIZE: ${DETECTOR_BATCH_SIZE:-100}
+      XGB_ATTACK_THRESHOLD: ${XGB_ATTACK_THRESHOLD:-0.6}
+      XGB_BENIGN_THRESHOLD: ${XGB_BENIGN_THRESHOLD:-0.8}
+      CNN_THRESHOLD: ${CNN_THRESHOLD:-0.5}
+      WEB_PORT: 10000
+    ports:
+      - "10000:10000"   # dashboard web del agente detector (SPADE)
+    volumes:
+      - models:/models:ro
+
+  # Fase 4 — Agente de decisión SPADE (CVSS v4.0). Perfil "agents".
+  decision:
+    build:
+      context: ./apps/decision
+      dockerfile: Dockerfile
+    container_name: ciber_decision
+    restart: unless-stopped
+    profiles: ["agents"]
+    depends_on:
+      xmpp:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    environment:
+      API_BASE_URL: ${DETECTOR_API_BASE_URL:-http://backend:8000}
+      DECISION_JID: ${DECISION_JID:-decision@ejabberd}
+      RESPONSE_JID: ${RESPONSE_JID:-response@ejabberd}
+      XMPP_DECISION_PASSWORD: ${XMPP_DECISION_PASSWORD}
+      XMPP_DISABLE_TLS: ${XMPP_DISABLE_TLS:-true}
+      CVSS_BLOCK_THRESHOLD: ${CVSS_BLOCK_THRESHOLD:-7.0}
+      WEB_PORT: 10001
+    ports:
+      - "10001:10001"   # dashboard web del agente decision (SPADE)
+
+  # Fase 5 — Agente de respuesta SPADE (iptables). Perfil "agents".
+  #   DRY_RUN=true en local (no ejecuta iptables). En la U, DRY_RUN=false.
+  response:
+    build:
+      context: ./apps/response
+      dockerfile: Dockerfile
+    container_name: ciber_response
+    restart: unless-stopped
+    profiles: ["agents"]
+    cap_add:
+      - NET_ADMIN
+    depends_on:
+      xmpp:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    environment:
+      API_BASE_URL: ${DETECTOR_API_BASE_URL:-http://backend:8000}
+      RESPONSE_JID: ${RESPONSE_JID:-response@ejabberd}
+      XMPP_RESPONSE_PASSWORD: ${XMPP_RESPONSE_PASSWORD}
+      XMPP_DISABLE_TLS: ${XMPP_DISABLE_TLS:-true}
+      DRY_RUN: ${RESPONSE_DRY_RUN:-true}
+      WEB_PORT: 10002
+    ports:
+      - "10002:10002"   # dashboard web del agente response (SPADE)
+
+  # Frontend React + Vite (desarrollo con hot-reload)
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: ciber_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8000/ws/flows/}
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules    # volumen anónimo: conserva node_modules del contenedor
+
 volumes:
   pgdata:
   grafanadata:
+  prosodydata:
+  models:

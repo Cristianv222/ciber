@@ -1,0 +1,5 @@
+# Dependencias del agente de decisión (Fase 4)
+spade>=3.3.0
+slixmpp==1.8.5       # compatibilidad con SPADE 4.x (versiones nuevas rompen connect())
+requests>=2.31.0     # escritura vía API REST
+cvss>=3.2            # cálculo oficial CVSS v4.0

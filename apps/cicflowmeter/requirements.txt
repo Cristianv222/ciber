@@ -1,0 +1,4 @@
+# Dependencias del módulo de ingesta (Capa 2)
+scapy>=2.5.0
+requests>=2.31.0          # sumidero API REST
+psycopg2-binary>=2.9.9    # sumidero de inserción directa en BD

@@ -45,6 +45,15 @@ class FlowConsumer(AsyncWebsocketConsumer):
             'flow': flow_data
         }))
 
+    async def flow_updated_message(self, event):
+        """Manejador ejecutado cuando un agente actualiza un flujo existente
+        (label, confidence, detector_stage, cvss_score, action_taken)."""
+        flow_data = event['data']
+        await self.send(text_data=json.dumps({
+            'type': 'flow_updated',
+            'flow': flow_data
+        }))
+
     async def honeypot_event_message(self, event):
         """Manejador ejecutado cuando se registra un ataque en la Honeypot."""
         honeypot_data = event['data']

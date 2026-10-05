@@ -14,6 +14,14 @@ CREATE TABLE IF NOT EXISTS flows (
     protocol                        INTEGER NOT NULL,
     label                           VARCHAR(50) NOT NULL DEFAULT 'unlabeled',
 
+    -- Resultados del Pipeline Autónomo (poblados por los agentes SPADE)
+    attack_type                     VARCHAR(50),        -- Detector
+    confidence                      DOUBLE PRECISION,   -- Detector
+    detector_stage                  VARCHAR(30),        -- xgboost / cnn_lstm / autoencoder
+    cvss_score                      DOUBLE PRECISION,   -- Decision (CVSS v4.0)
+    action_taken                    VARCHAR(100),       -- Response
+    processed_at                    TIMESTAMPTZ,        -- Marca de procesamiento del pipeline
+
     -- Métrica Duración y Conteos de Paquetes/Bytes
     flow_duration                   BIGINT,
     total_fwd_packets               BIGINT,
@@ -130,3 +138,5 @@ CREATE INDEX IF NOT EXISTS idx_flows_timestamp ON flows (timestamp);
 CREATE INDEX IF NOT EXISTS idx_flows_label ON flows (label);
 CREATE INDEX IF NOT EXISTS idx_flows_src_ip ON flows (src_ip);
 CREATE INDEX IF NOT EXISTS idx_flows_dst_ip ON flows (dst_ip);
+CREATE INDEX IF NOT EXISTS idx_flows_attack_type ON flows (attack_type);
+CREATE INDEX IF NOT EXISTS idx_flows_processed_at ON flows (processed_at);

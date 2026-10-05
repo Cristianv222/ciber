@@ -1,0 +1,10 @@
+# Dependencias del agente detector (Fase 3)
+spade>=3.3.0
+slixmpp==1.8.5             # compatibilidad con SPADE 4.x (versiones nuevas rompen connect())
+psycopg2-binary>=2.9.9     # lectura directa de flujos
+requests>=2.31.0           # escritura vía API REST
+numpy>=1.26.0
+scikit-learn>=1.4.0        # StandardScaler (scaler.pkl)
+xgboost>=2.0.0             # etapa 1
+tensorflow>=2.16.0         # etapas 2 y 3 (CNN-LSTM, Autoencoder)
+joblib>=1.3.0

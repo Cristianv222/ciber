@@ -1,0 +1,59 @@
+# =============================================================================
+# Overrides de PRODUCCIÓN — Sistema Autónomo de Monitoreo de Red
+# =============================================================================
+# Se aplica ENCIMA de docker-compose.yml. El código es el mismo; solo cambian las
+# variables de entorno y el endurecimiento de seguridad.
+#
+# Despliegue en la máquina de la universidad:
+#   docker compose --env-file .env.prod \
+#     -f docker-compose.yml -f docker-compose.prod.yml \
+#     --profile ingest --profile agents up -d --build
+#
+#   # (los modelos se entrenan una vez, a demanda:)
+#   docker compose --env-file .env.prod \
+#     -f docker-compose.yml -f docker-compose.prod.yml \
+#     --profile training run --rm trainer
+# =============================================================================
+
+services:
+  backend:
+    # Daphne (ASGI) ya es el comando base. Aquí forzamos el endurecimiento.
+    environment:
+      DJANGO_DEBUG: "False"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CORS_ALLOW_ALL_ORIGINS: "False"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+    restart: always
+
+  postgres:
+    restart: always
+
+  redis:
+    restart: always
+
+  ejabberd:
+    restart: always
+
+  grafana:
+    restart: always
+
+  # Ingesta en vivo del puerto SPAN (no modo pcap)
+  cicflowmeter:
+    environment:
+      CAPTURE_MODE: "live"
+      SPAN_INTERFACE: ${SPAN_INTERFACE}
+      INGEST_MODE: ${INGEST_MODE:-api}
+    restart: always
+
+  detector:
+    restart: always
+
+  decision:
+    restart: always
+
+  # En producción el bloqueo es real (iptables), no simulado
+  response:
+    environment:
+      DRY_RUN: "false"
+    restart: always

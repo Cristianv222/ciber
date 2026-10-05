@@ -1,0 +1,24 @@
+# =============================================================================
+# Dependencias compartidas por los agentes SPADE (detector, decision, response)
+# Proyecto de Tesis - Sistema Autónomo de Monitoreo de Red
+# =============================================================================
+# Cada agente (Fases 3-5) tendrá su propio Dockerfile que instala este archivo
+# base y, si hace falta, añade sus dependencias específicas. Se mantiene aparte
+# de apps/backend/requirements.txt para no inflar la imagen del backend (que no
+# ejecuta SPADE ni modelos de ML).
+
+# --- Framework de agentes ---
+spade>=3.3.0                # Agentes inteligentes sobre XMPP
+slixmpp==1.8.5             # compatibilidad con SPADE 4.x (versiones nuevas rompen connect())
+
+# --- Acceso a datos y comunicación con el backend ---
+psycopg2-binary>=2.9.9      # Lectura directa de flujos desde PostgreSQL
+requests>=2.31.0            # Escritura de resultados vía API REST (PATCH /api/flows/{id}/)
+
+# --- Machine Learning (principalmente para el detector) ---
+numpy>=1.26.0
+pandas>=2.2.0
+scikit-learn>=1.4.0
+xgboost>=2.0.0              # Primera etapa de la cascada
+tensorflow>=2.16.0         # CNN-LSTM y Autoencoder (.h5)
+joblib>=1.3.0              # Carga de artefactos .pkl

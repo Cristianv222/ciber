@@ -1,0 +1,17 @@
+# =============================================================================
+# Override LOCAL (se auto-aplica solo con `docker compose ...` sin -f).
+# NO afecta a producción, que usa -f docker-compose.yml -f docker-compose.prod.yml.
+#
+# Remapea los puertos de host que chocan con otros proyectos en esta máquina.
+# La comunicación interna entre contenedores usa la red de Docker (puertos
+# internos 5432/6379), así que esto solo cambia cómo se accede desde el host.
+# =============================================================================
+
+services:
+  postgres:
+    ports: !override
+      - "5433:5432"   # host 5433 -> contenedor 5432 (5432 lo usan Aurora/CommerceBox)
+
+  redis:
+    ports: !override
+      - "6380:6379"   # host 6380 -> contenedor 6379

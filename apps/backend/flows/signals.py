@@ -7,17 +7,22 @@ from .serializers import FlowSerializer, HoneypotEventSerializer
 
 
 @receiver(post_save, sender=Flow)
-def broadcast_new_flow(sender, instance, created, **kwargs):
-    if created:
-        channel_layer = get_channel_layer()
-        serializer = FlowSerializer(instance)
-        async_to_sync(channel_layer.group_send)(
-            'flows_room',
-            {
-                'type': 'flow_message',
-                'data': serializer.data
-            }
-        )
+def broadcast_flow(sender, instance, created, **kwargs):
+    """Retransmite un flujo tanto al crearse (ingesta) como al actualizarse
+    (clasificación/decisión/respuesta de los agentes SPADE vía la API REST).
+
+    Se usa un `type` distinto para que el frontend diferencie un flujo nuevo
+    de uno ya procesado por el pipeline."""
+    channel_layer = get_channel_layer()
+    serializer = FlowSerializer(instance)
+    message_type = 'flow_message' if created else 'flow_updated_message'
+    async_to_sync(channel_layer.group_send)(
+        'flows_room',
+        {
+            'type': message_type,
+            'data': serializer.data
+        }
+    )
 
 
 @receiver(post_save, sender=HoneypotEvent)

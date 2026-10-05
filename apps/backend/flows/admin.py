@@ -4,8 +4,8 @@ from .models import Flow, HoneypotEvent
 
 @admin.register(Flow)
 class FlowAdmin(admin.ModelAdmin):
-    list_display = ('id', 'timestamp', 'src_ip', 'src_port', 'dst_ip', 'dst_port', 'protocol', 'label', 'flow_duration')
-    list_filter = ('label', 'protocol', 'timestamp')
+    list_display = ('id', 'timestamp', 'src_ip', 'src_port', 'dst_ip', 'dst_port', 'protocol', 'label', 'attack_type', 'confidence', 'cvss_score', 'action_taken', 'processed_at')
+    list_filter = ('label', 'attack_type', 'detector_stage', 'protocol', 'timestamp')
     search_fields = ('src_ip', 'dst_ip', 'label')
     ordering = ('-timestamp',)
     readonly_fields = [f.name for f in Flow._meta.fields]
