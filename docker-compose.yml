@@ -30,28 +30,35 @@ services:
       timeout: 5s
       retries: 5
 
-  # Servidor XMPP (Prosody). El dominio sigue siendo "ejabberd" (alias de red)
-  # para no cambiar los JIDs de los agentes. Los usuarios se registran con
-  # prosodyctl (ver README / scripts/register_xmpp_users.sh).
-  xmpp:
-    image: prosody/prosody:latest
-    container_name: ciber_xmpp
+  # Servidor XMPP para la mensajería entre agentes SPADE. Servidor oficial: ejabberd.
+  #   Los usuarios se registran automáticamente en el primer arranque (CTL_ON_CREATE).
+  #   Nota (solo desarrollo en Apple Silicon): docker-compose.override.yml sustituye
+  #   esta imagen por Prosody porque ejabberd/ecs no publica arm64. En la máquina de
+  #   la universidad (amd64) y en producción se usa ejabberd tal cual.
+  ejabberd:
+    image: ejabberd/ecs:latest
+    container_name: ciber_ejabberd
+    platform: linux/amd64
     restart: unless-stopped
-    networks:
-      default:
-        aliases:
-          - ejabberd
+    environment:
+      # Registro automático de usuarios en el primer arranque (idempotente).
+      CTL_ON_CREATE: |
+        register admin ejabberd ${XMPP_ADMIN_PASSWORD}
+        register detector ejabberd ${XMPP_DETECTOR_PASSWORD}
+        register decision ejabberd ${XMPP_DECISION_PASSWORD}
+        register response ejabberd ${XMPP_RESPONSE_PASSWORD}
     ports:
       - "5222:5222"   # XMPP c2s (clientes / agentes SPADE)
+      - "5280:5280"   # Panel de administración web
     volumes:
-      - ./infra/prosody/prosody.cfg.lua:/etc/prosody/prosody.cfg.lua:ro
-      - prosodydata:/var/lib/prosody
+      - ./infra/ejabberd/ejabberd.yml:/home/ejabberd/conf/ejabberd.yml:ro
+      - ejabberddata:/home/ejabberd/database
     healthcheck:
-      test: ["CMD-SHELL", "prosodyctl status || exit 1"]
+      test: ["CMD", "ejabberdctl", "status"]
       interval: 10s
       timeout: 10s
       retries: 5
-      start_period: 15s
+      start_period: 20s
 
   grafana:
     image: grafana/grafana:latest
@@ -184,7 +191,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      xmpp:
+      ejabberd:
         condition: service_healthy
       backend:
         condition: service_started
@@ -220,7 +227,7 @@ services:
     restart: unless-stopped
     profiles: ["agents"]
     depends_on:
-      xmpp:
+      ejabberd:
         condition: service_healthy
       backend:
         condition: service_started
@@ -247,7 +254,7 @@ services:
     cap_add:
       - NET_ADMIN
     depends_on:
-      xmpp:
+      ejabberd:
         condition: service_healthy
       backend:
         condition: service_started
@@ -280,5 +287,6 @@ services:
 volumes:
   pgdata:
   grafanadata:
+  ejabberddata:
   prosodydata:
   models:

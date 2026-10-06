@@ -38,6 +38,9 @@ services:
   grafana:
     restart: always
 
+  frontend:
+    restart: always
+
   # Ingesta en vivo del puerto SPAN (no modo pcap)
   cicflowmeter:
     environment:

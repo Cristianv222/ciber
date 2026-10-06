@@ -17,7 +17,7 @@ SERVICE_CONTAINERS = [
     ('ciber_postgres', 'PostgreSQL'),
     ('ciber_redis', 'Redis'),
     ('ciber_backend', 'Backend / API'),
-    ('ciber_xmpp', 'XMPP (Prosody)'),
+    ('ciber_ejabberd', 'Servidor XMPP (ejabberd)'),
     ('ciber_grafana', 'Grafana'),
     ('ciber_detector', 'Agente Detector'),
     ('ciber_decision', 'Agente Decisión'),

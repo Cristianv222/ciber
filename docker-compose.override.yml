@@ -1,10 +1,13 @@
 # =============================================================================
-# Override LOCAL (se auto-aplica solo con `docker compose ...` sin -f).
-# NO afecta a producción, que usa -f docker-compose.yml -f docker-compose.prod.yml.
+# Override de DESARROLLO LOCAL (Apple Silicon) — se auto-aplica solo con
+# `docker compose ...` SIN -f. NO afecta a la tesis ni a producción, que se
+# despliegan con -f docker-compose.yml -f docker-compose.prod.yml (este archivo
+# no se carga ahí).
 #
-# Remapea los puertos de host que chocan con otros proyectos en esta máquina.
-# La comunicación interna entre contenedores usa la red de Docker (puertos
-# internos 5432/6379), así que esto solo cambia cómo se accede desde el host.
+# Hace dos cosas, ambas solo para este Mac:
+#   1) Remapea puertos de host que chocan con otros proyectos (Aurora/CommerceBox).
+#   2) Sustituye ejabberd por Prosody, porque ejabberd/ecs no publica imagen arm64
+#      y su TLS nativo se cae bajo emulación. En la U (amd64) se usa ejabberd real.
 # =============================================================================
 
 services:
@@ -15,3 +18,15 @@ services:
   redis:
     ports: !override
       - "6380:6379"   # host 6380 -> contenedor 6379
+
+  # Solo en local: el servicio "ejabberd" corre Prosody (misma red, mismo nombre,
+  # mismo dominio XMPP "ejabberd", mismos JIDs). Los agentes no cambian.
+  ejabberd:
+    image: prosody/prosody:latest
+    volumes: !override
+      - ./infra/prosody/prosody.cfg.lua:/etc/prosody/prosody.cfg.lua:ro
+      - prosodydata:/var/lib/prosody
+    ports: !override
+      - "5222:5222"
+    healthcheck:
+      test: ["CMD-SHELL", "prosodyctl status || exit 1"]
