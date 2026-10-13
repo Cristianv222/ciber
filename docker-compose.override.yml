@@ -13,11 +13,11 @@
 services:
   postgres:
     ports: !override
-      - "5433:5432"   # host 5433 -> contenedor 5432 (5432 lo usan Aurora/CommerceBox)
+      - "5435:5432"   # host 5435 -> contenedor 5432 (otros proyectos ocupan 5432-5434)
 
   redis:
     ports: !override
-      - "6380:6379"   # host 6380 -> contenedor 6379
+      - "6381:6379"   # host 6381 -> contenedor 6379 (6379/6380 ocupados por otros proyectos)
 
   # Solo en local: el servicio "ejabberd" corre Prosody (misma red, mismo nombre,
   # mismo dominio XMPP "ejabberd", mismos JIDs). Los agentes no cambian.

@@ -2,8 +2,8 @@ from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count
-from .models import Flow, HoneypotEvent
-from .serializers import FlowSerializer, HoneypotEventSerializer
+from .models import Flow, HoneypotEvent, WebVisit
+from .serializers import FlowSerializer, HoneypotEventSerializer, WebVisitSerializer
 
 
 class FlowViewSet(viewsets.ModelViewSet):
@@ -120,4 +120,54 @@ class HoneypotEventViewSet(viewsets.ModelViewSet):
             'points': list(points.values()),
             'countries': countries,
             'target': target,
+        })
+
+
+class WebVisitViewSet(viewsets.ModelViewSet):
+    queryset = WebVisit.objects.all()
+    serializer_class = WebVisitSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['domain', 'src_ip', 'url_path']
+    ordering_fields = ['timestamp', 'domain', 'src_ip']
+    ordering = ['-timestamp']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        src_ip = self.request.query_params.get('src_ip')
+        domain = self.request.query_params.get('domain')
+        source = self.request.query_params.get('source')
+        if src_ip:
+            qs = qs.filter(src_ip=src_ip)
+        if domain:
+            qs = qs.filter(domain__icontains=domain)
+        if source:
+            qs = qs.filter(source=source)
+        return qs
+
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """Resumen de navegación: totales, dominios y clientes únicos."""
+        total = WebVisit.objects.count()
+        unique_domains = WebVisit.objects.values('domain').distinct().count()
+        unique_clients = WebVisit.objects.values('src_ip').distinct().count()
+        return Response({
+            'total_visits': total,
+            'unique_domains': unique_domains,
+            'unique_clients': unique_clients,
+        })
+
+    @action(detail=False, methods=['get'])
+    def top(self, request):
+        """Top de sitios más visitados y clientes más activos."""
+        limit = int(request.query_params.get('limit', 15))
+        top_domains = (WebVisit.objects.values('domain')
+                       .annotate(total=Count('id')).order_by('-total')[:limit])
+        top_clients = (WebVisit.objects.values('src_ip')
+                       .annotate(total=Count('id')).order_by('-total')[:limit])
+        by_source = (WebVisit.objects.values('source')
+                     .annotate(total=Count('id')).order_by('-total'))
+        return Response({
+            'top_domains': top_domains,
+            'top_clients': top_clients,
+            'by_source': by_source,
         })

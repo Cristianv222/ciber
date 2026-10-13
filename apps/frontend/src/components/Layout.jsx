@@ -3,12 +3,13 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { useTheme } from '../theme/ThemeContext.jsx'
 import {
   IconDashboard, IconShield, IconAgents, IconModel, IconLogout, IconSun, IconMoon,
-  IconFlows, IconHoneypot, IconServer,
+  IconFlows, IconHoneypot, IconServer, IconCompass,
 } from './icons.jsx'
 
 const nav = [
   { to: '/', label: 'Dashboard', Icon: IconDashboard, end: true },
   { to: '/flujos', label: 'Flujos', Icon: IconFlows },
+  { to: '/navegacion', label: 'Navegación', Icon: IconCompass },
   { to: '/ataques', label: 'Ataques', Icon: IconShield },
   { to: '/honeypot', label: 'Honeypot', Icon: IconHoneypot },
   { to: '/agentes', label: 'Agentes', Icon: IconAgents },

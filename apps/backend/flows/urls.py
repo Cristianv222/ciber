@@ -1,11 +1,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import FlowViewSet, HoneypotEventViewSet
+from .views import FlowViewSet, HoneypotEventViewSet, WebVisitViewSet
 from . import auth_views, control_views
 
 router = DefaultRouter()
 router.register(r'flows', FlowViewSet, basename='flow')
 router.register(r'honeypot-events', HoneypotEventViewSet, basename='honeypot-event')
+router.register(r'web-visits', WebVisitViewSet, basename='web-visit')
 
 urlpatterns = [
     path('', include(router.urls)),

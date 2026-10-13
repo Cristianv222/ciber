@@ -63,3 +63,7 @@ export const IconExternal = (p) => (
 export const IconClose = (p) => (
   <svg {...base} {...p}><path d="M6 6l12 12M18 6L6 18" /></svg>
 )
+
+export const IconCompass = (p) => (
+  <svg {...base} {...p}><circle cx="12" cy="12" r="9" /><path d="M15.5 8.5l-2 5-5 2 2-5 5-2z" /></svg>
+)

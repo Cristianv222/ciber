@@ -71,7 +71,7 @@ def build_sink_cfg(args):
     }
 
 
-def run_pcap(meter, path):
+def run_pcap(handle, path):
     from scapy.utils import PcapReader
     if not path or not os.path.exists(path):
         log.error("Archivo pcap no encontrado: %s", path)
@@ -79,14 +79,13 @@ def run_pcap(meter, path):
     log.info("Leyendo pcap: %s", path)
     with PcapReader(path) as reader:
         for pkt in reader:
-            meter.process_packet(pkt)
-    meter.flush_all()
+            handle(pkt)
 
 
-def run_live(meter, iface):
+def run_live(handle, iface):
     from scapy.sendrecv import sniff
     log.info("Capturando en la interfaz: %s (Ctrl+C para detener)", iface)
-    sniff(iface=iface, prn=meter.process_packet, store=False)
+    sniff(iface=iface, prn=handle, store=False)
 
 
 def main():
@@ -98,10 +97,27 @@ def main():
     sink = build_sink(args.sink, build_sink_cfg(args))
     meter = FlowMeter(sink, flow_timeout=args.flow_timeout)
 
+    # Captura de navegación web (SNI/DNS/HTTP) — opcional
+    web_extractor = None
+    web_sink = None
+    if _env("WEB_CAPTURE", "true").lower() in ("1", "true", "yes", "on"):
+        from web import WebExtractor
+        from sinks import WebApiSink
+        web_sink = WebApiSink(_env("API_BASE_URL", "http://localhost:8000"))
+        web_extractor = WebExtractor(web_sink, dedup_window=float(_env("WEB_DEDUP_WINDOW", "15")))
+        log.info("Captura de navegación web activada (SNI/DNS/HTTP).")
+
+    def handle(pkt):
+        meter.process_packet(pkt)
+        if web_extractor is not None:
+            web_extractor.process(pkt)
+
     def _shutdown(signum, frame):
         log.info("Señal recibida, vaciando flujos pendientes…")
         meter.flush_all()
         sink.close()
+        if web_sink:
+            web_sink.close()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, _shutdown)
@@ -109,12 +125,14 @@ def main():
 
     try:
         if args.mode == "pcap":
-            run_pcap(meter, args.pcap)
+            run_pcap(handle, args.pcap)
         else:
-            run_live(meter, args.interface)
+            run_live(handle, args.interface)
     finally:
         meter.flush_all()
         sink.close()
+        if web_sink:
+            web_sink.close()
 
 
 if __name__ == "__main__":

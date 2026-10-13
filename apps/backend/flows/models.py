@@ -162,3 +162,25 @@ class HoneypotEvent(models.Model):
 
     def __str__(self):
         return f"[{self.timestamp}] Honeypot '{self.honeypot_name}': {self.attacker_ip} -> {self.service} ({self.username_attempted}:{self.password_attempted})"
+
+
+class WebVisit(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    src_ip = models.GenericIPAddressField()
+    dst_ip = models.GenericIPAddressField(null=True, blank=True)
+    dst_port = models.IntegerField(null=True, blank=True)
+    source = models.CharField(max_length=10, default='tls')   # tls | dns | http
+    domain = models.CharField(max_length=255)
+    url_path = models.TextField(null=True, blank=True)         # solo HTTP plano
+    method = models.CharField(max_length=10, null=True, blank=True)
+
+    class Meta:
+        db_table = 'web_visits'
+        managed = False
+        ordering = ['-timestamp']
+        verbose_name = 'Visita Web'
+        verbose_name_plural = 'Navegación Web'
+
+    def __str__(self):
+        return f"[{self.timestamp}] {self.src_ip} -> {self.domain}{self.url_path or ''} ({self.source})"

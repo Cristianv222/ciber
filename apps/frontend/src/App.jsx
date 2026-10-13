@@ -4,6 +4,7 @@ import Layout from './components/Layout.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Flows from './pages/Flows.jsx'
+import Web from './pages/Web.jsx'
 import Attacks from './pages/Attacks.jsx'
 import Honeypot from './pages/Honeypot.jsx'
 import Agents from './pages/Agents.jsx'
@@ -31,6 +32,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="flujos" element={<Flows />} />
+        <Route path="navegacion" element={<Web />} />
         <Route path="ataques" element={<Attacks />} />
         <Route path="honeypot" element={<Honeypot />} />
         <Route path="agentes" element={<Agents />} />

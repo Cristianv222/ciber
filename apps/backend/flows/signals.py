@@ -2,8 +2,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from .models import Flow, HoneypotEvent
-from .serializers import FlowSerializer, HoneypotEventSerializer
+from .models import Flow, HoneypotEvent, WebVisit
+from .serializers import FlowSerializer, HoneypotEventSerializer, WebVisitSerializer
 
 
 @receiver(post_save, sender=Flow)
@@ -34,6 +34,20 @@ def broadcast_honeypot_event(sender, instance, created, **kwargs):
             'flows_room',
             {
                 'type': 'honeypot_event_message',
+                'data': serializer.data
+            }
+        )
+
+
+@receiver(post_save, sender=WebVisit)
+def broadcast_web_visit(sender, instance, created, **kwargs):
+    if created:
+        channel_layer = get_channel_layer()
+        serializer = WebVisitSerializer(instance)
+        async_to_sync(channel_layer.group_send)(
+            'flows_room',
+            {
+                'type': 'web_visit_message',
                 'data': serializer.data
             }
         )

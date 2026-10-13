@@ -71,6 +71,30 @@ class DbSink:
             pass
 
 
+class WebApiSink:
+    """Envía visitas web a POST /api/web-visits/ (dispara el WebSocket)."""
+
+    def __init__(self, base_url, timeout=5.0):
+        import requests
+        self.url = base_url.rstrip('/') + '/api/web-visits/'
+        self.timeout = timeout
+        self.session = requests.Session()
+
+    def write(self, data):
+        try:
+            r = self.session.post(self.url, json=data, timeout=self.timeout)
+            if r.status_code >= 400:
+                log.debug("API rechazó la visita web (%s): %s", r.status_code, r.text[:200])
+        except Exception as exc:  # noqa: BLE001
+            log.debug("No se pudo enviar la visita web: %s", exc)
+
+    def close(self):
+        try:
+            self.session.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def build_sink(mode, cfg):
     if mode == 'db':
         log.info("Sumidero: INSERT directo en PostgreSQL %s:%s", cfg['db_host'], cfg['db_port'])

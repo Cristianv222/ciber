@@ -61,3 +61,10 @@ class FlowConsumer(AsyncWebsocketConsumer):
             'type': 'new_honeypot_event',
             'event': honeypot_data
         }))
+
+    async def web_visit_message(self, event):
+        """Manejador ejecutado cuando se registra una visita web."""
+        await self.send(text_data=json.dumps({
+            'type': 'new_web_visit',
+            'visit': event['data']
+        }))
