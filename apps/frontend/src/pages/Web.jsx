@@ -26,25 +26,41 @@ export default function Web() {
   const [summary, setSummary] = useState({ total_visits: 0, unique_domains: 0, unique_clients: 0 })
   const [top, setTop] = useState({ top_domains: [], top_clients: [], by_source: [] })
   const [recent, setRecent] = useState([])
+  const [srcFilter, setSrcFilter] = useState('')  // '' = todos
 
-  async function load() {
-    const [s, t, r] = await Promise.all([
+  async function loadStatic() {
+    const [s, t] = await Promise.all([
       api.get('/api/web-visits/summary/'),
       api.get('/api/web-visits/top/', { params: { limit: 12 } }),
-      api.get('/api/web-visits/', { params: { ordering: '-timestamp' } }),
     ])
     setSummary(s.data)
     setTop(t.data)
+  }
+  async function loadRecent() {
+    const r = await api.get('/api/web-visits/', {
+      params: { ordering: '-timestamp', source: srcFilter || undefined },
+    })
     setRecent(r.data.results || r.data)
   }
-  useEffect(() => { load().catch(() => {}) }, [])
+  useEffect(() => { loadStatic().catch(() => {}) }, [])
+  useEffect(() => { loadRecent().catch(() => {}) }, [srcFilter])
 
   const { connected } = useFlowsSocket((msg) => {
     if (msg.type === 'new_web_visit') {
-      setRecent((p) => [msg.visit, ...p].slice(0, 100))
+      if (!srcFilter || msg.visit.source === srcFilter) {
+        setRecent((p) => [msg.visit, ...p].slice(0, 100))
+      }
       setSummary((s) => ({ ...s, total_visits: (s.total_visits || 0) + 1 }))
     }
   })
+
+  const sourceCount = (src) => (top.by_source || []).find((s) => s.source === src)?.total ?? 0
+  const FILTERS = [
+    { key: '', label: 'Todos' },
+    { key: 'tls', label: `HTTPS (${sourceCount('tls')})` },
+    { key: 'dns', label: `DNS (${sourceCount('dns')})` },
+    { key: 'http', label: `HTTP (${sourceCount('http')})` },
+  ]
 
   const domainsData = useMemo(
     () => (top.top_domains || []).map((d) => ({ domain: d.domain, total: d.total })),
@@ -104,7 +120,24 @@ export default function Web() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-line text-sm font-medium">Registro de navegación (en vivo)</div>
+        <div className="px-5 py-3.5 border-b border-line flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-sm font-medium">Registro de navegación (en vivo)</span>
+          <div className="flex gap-1.5">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setSrcFilter(f.key)}
+                className={`chip border transition-colors ${
+                  srcFilter === f.key
+                    ? 'bg-fg text-bg border-fg'
+                    : 'bg-surface2 text-muted border-line hover:text-fg'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-xs text-muted">
