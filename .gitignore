@@ -29,10 +29,15 @@ env/
 # Node / Frontend (Fases futuras)
 node_modules/
 
-# Modelos y Artefactos de Machine Learning
+# Modelos y Artefactos de Machine Learning (se ignoran por defecto excepto los de producción en models/)
 *.pkl
 *.h5
 *.joblib
+*.pt
+!models/*.pkl
+!models/*.pt
+!models/*.json
+
 
 # Bases de datos GeoIP (grandes; se descargan aparte, ver infra/geoip/README.md)
 *.mmdb

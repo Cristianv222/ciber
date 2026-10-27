@@ -74,7 +74,7 @@ export default function Models() {
           <div className="text-sm font-medium mb-4">Modelos de la cascada</div>
           <div className="space-y-3">
             {['xgboost', 'cnn_lstm', 'autoencoder'].map((key) => {
-              const present = info?.artifacts?.[key === 'xgboost' ? 'xgboost.pkl' : key + '.h5']
+              const present = info?.artifacts?.[key === 'xgboost' ? 'xgboost.pkl' : key + '.pt'] || info?.artifacts?.[key + '.h5']
               const m = models[key]
               return (
                 <div key={key} className="flex items-center justify-between border border-line rounded-lg px-4 py-3">

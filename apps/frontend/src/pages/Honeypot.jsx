@@ -25,6 +25,7 @@ export default function Honeypot() {
     if (msg.type === 'new_honeypot_event') {
       setEvents((p) => [msg.event, ...p].slice(0, 100))
       setSummary((s) => ({ ...s, total_events: (s.total_events || 0) + 1 }))
+      api.get('/api/honeypot-events/geo/').then((g) => setGeo(g.data)).catch(() => {})
     }
   })
 

@@ -30,3 +30,14 @@ services:
       - "5222:5222"
     healthcheck:
       test: ["CMD-SHELL", "prosodyctl status || exit 1"]
+
+  backend:
+    volumes:
+      - ./apps/backend:/app
+      - ./models:/models:ro
+      - ./infra/geoip:/geoip:ro
+
+  detector:
+    volumes:
+      - ./models:/models:ro
+

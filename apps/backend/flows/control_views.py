@@ -33,7 +33,7 @@ def models_info(request):
     """Metadatos de los modelos entrenados (lee /models/metadata.json)."""
     meta_path = os.path.join(MODELS_DIR, 'metadata.json')
     present = {}
-    for name in ('xgboost.pkl', 'cnn_lstm.h5', 'autoencoder.h5', 'scaler.pkl', 'metadata.json'):
+    for name in ('xgboost.pkl', 'cnn_lstm.pt', 'cnn_lstm.h5', 'autoencoder.pt', 'autoencoder.h5', 'scaler.pkl', 'metadata.json'):
         present[name] = os.path.exists(os.path.join(MODELS_DIR, name))
 
     if not os.path.exists(meta_path):

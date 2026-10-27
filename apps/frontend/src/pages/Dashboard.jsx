@@ -57,6 +57,20 @@ export default function Dashboard() {
       setSummary((s) => ({ ...s, total_flows: (s.total_flows || 0) + 1 }))
     } else if (msg.type === 'flow_updated') {
       setFlows((prev) => prev.map((f) => (f.id === msg.flow.id ? msg.flow : f)))
+      const lbl = msg.flow?.label
+      if (lbl && lbl !== 'unlabeled') {
+        setSummary((s) => {
+          if (!s) return s
+          const curDist = (s.labels_distribution || []).map((d) => ({ ...d }))
+          const idx = curDist.findIndex((d) => d.label?.toLowerCase() === lbl?.toLowerCase())
+          if (idx >= 0) {
+            curDist[idx] = { ...curDist[idx], total: (curDist[idx].total || 0) + 1 }
+          } else {
+            curDist.push({ label: lbl, total: 1 })
+          }
+          return { ...s, labels_distribution: curDist }
+        })
+      }
     }
   })
 

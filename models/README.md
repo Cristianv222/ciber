@@ -4,13 +4,13 @@ Entrena los tres modelos que usa el **detector** (Fase 3) y exporta los artefact
 a un volumen `/models` compartido.
 
 ## Artefactos generados
-| Archivo | Modelo | Rol en la cascada |
-|---------|--------|-------------------|
-| `xgboost.pkl` | XGBoost multiclase | Etapa 1 — clasifica el tipo de ataque |
-| `cnn_lstm.h5` | CNN-LSTM binaria | Etapa 2 — ataque vs. benigno |
-| `autoencoder.h5` | Autoencoder | Etapa 3 — anomalía por error de reconstrucción |
-| `scaler.pkl` | StandardScaler | Escalado para CNN-LSTM y Autoencoder |
-| `metadata.json` | — | Orden de features, clases, umbral del autoencoder |
+| Archivo | Modelo / Framework | Rol en la cascada (Tesis UPEC) | Métrica Test (1M) |
+|---|---|---|---|
+| `xgboost.pkl` | XGBoost (árboles) | Etapa 1 — Filtro rápido multiclase / descarte de benignos | Accuracy: **98.12%**, F1: **98.16%** |
+| `cnn_lstm.pt` | CNN-LSTM (PyTorch) | Etapa 2 — Clasificador multiclase de amenazas sospechosas | Accuracy: **91.10%**, F1: **90.56%** |
+| `autoencoder.pt` | Autoencoder (PyTorch) | Etapa 3 — Detección no supervisada de anomalías / día cero | Umbral (p99): **0.973276** |
+| `scaler.pkl` | StandardScaler | Normalización z-score para CNN-LSTM y Autoencoder | — |
+| `metadata.json` | JSON | 78 features, 6 clases (`Benign`, `BruteForce`, `DDoS`, `DoS`, `Exploit`, `PortScan`) | — |
 
 > **XGBoost** usa las features en crudo; **CNN-LSTM** y **Autoencoder** usan las
 > features escaladas con `scaler.pkl`. El **orden de features** está fijado en

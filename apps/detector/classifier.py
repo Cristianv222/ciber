@@ -94,24 +94,64 @@ class Cascade:
         scaler_path = os.path.join(models_dir, "scaler.pkl")
         self.scaler = joblib.load(scaler_path) if os.path.exists(scaler_path) else None
 
-        # Modelos Keras opcionales (etapas 2 y 3)
-        self.cnn = self._load_keras(os.path.join(models_dir, "cnn_lstm.h5"))
-        self.ae = self._load_keras(os.path.join(models_dir, "autoencoder.h5"))
+        # Modelos opcionales (etapas 2 y 3) — soporta PyTorch (.pt) o Keras (.h5)
+        self.cnn = self._load_model(os.path.join(models_dir, "cnn_lstm.pt"),
+                                    os.path.join(models_dir, "cnn_lstm.h5"))
+        self.ae = self._load_model(os.path.join(models_dir, "autoencoder.pt"),
+                                   os.path.join(models_dir, "autoencoder.h5"))
 
         log.info("Cascada cargada. Features=%d, clases=%s, cnn=%s, ae=%s (umbral=%s)",
                  len(self.features), self.class_names,
                  self.cnn is not None, self.ae is not None, self.ae_threshold)
 
     @staticmethod
-    def _load_keras(path):
-        if not os.path.exists(path):
-            return None
-        try:
-            from tensorflow import keras
-            return keras.models.load_model(path)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("No se pudo cargar %s: %s", path, exc)
-            return None
+    def _load_model(pt_path, h5_path):
+        # 1. Intentar PyTorch (.pt)
+        if os.path.exists(pt_path):
+            try:
+                import torch
+                import sys
+                cur_dir = os.path.dirname(os.path.abspath(__file__))
+                models_dir = os.path.abspath(os.path.join(cur_dir, "..", "..", "models"))
+                if models_dir not in sys.path:
+                    sys.path.insert(0, models_dir)
+                from architectures import CNN_LSTM_PyTorch, Autoencoder_PyTorch
+
+                data = torch.load(pt_path, map_location="cpu", weights_only=True)
+                if "cnn_lstm" in os.path.basename(pt_path):
+                    model = CNN_LSTM_PyTorch(n_features=78, n_classes=1)
+                else:
+                    model = Autoencoder_PyTorch(n_features=78)
+
+                if isinstance(data, dict):
+                    model.load_state_dict(data)
+                else:
+                    model = data
+                model.eval()
+
+                class _TorchWrapper:
+                    def __init__(self, m):
+                        self.m = m
+
+                    def predict(self, x, verbose=0):
+                        with torch.no_grad():
+                            t = torch.from_numpy(x).float()
+                            out = self.m(t)
+                            return out.cpu().numpy()
+
+                return _TorchWrapper(model)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("No se pudo cargar modelo PyTorch %s: %s", pt_path, exc)
+
+        # 2. Intentar Keras (.h5)
+        if os.path.exists(h5_path):
+            try:
+                from tensorflow import keras
+                return keras.models.load_model(h5_path)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("No se pudo cargar modelo Keras %s: %s", h5_path, exc)
+
+        return None
 
     def _vector(self, feat):
         return np.array([[float(feat.get(c, 0.0) or 0.0) for c in self.features]], dtype=float)

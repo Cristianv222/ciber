@@ -20,18 +20,22 @@ def _env(name, default=None):
 
 
 def _maybe_disable_tls():
-    """Conecta en texto plano si XMPP_DISABLE_TLS está activo (ejabberd corre sin
-    TLS en la red interna de Docker; el NIF fast_tls es inestable bajo emulación
-    amd64 en Apple Silicon). En la U con amd64 nativo puede desactivarse."""
-    if str(_env("XMPP_DISABLE_TLS", "true")).lower() in ("1", "true", "yes", "on"):
-        import slixmpp
-        _orig = slixmpp.ClientXMPP.connect
+    import slixmpp
+    _orig = slixmpp.ClientXMPP.connect
 
-        def _connect(self, *a, **kw):
-            kw.setdefault("disable_starttls", True)
-            return _orig(self, *a, **kw)
+    def _connect(self, *a, **kw):
+        host = kw.pop("host", None)
+        port = kw.pop("port", 5222)
+        address = kw.pop("address", None)
+        if address is None and host is not None:
+            address = (host, int(port) if port is not None else 5222)
+        if str(_env("XMPP_DISABLE_TLS", "true")).lower() in ("1", "true", "yes", "on"):
+            kw["disable_starttls"] = True
+            kw["use_ssl"] = False
+        return _orig(self, address=address, *a, **kw)
 
-        slixmpp.ClientXMPP.connect = _connect
+    slixmpp.ClientXMPP.connect = _connect
+
 
 
 def build_config():

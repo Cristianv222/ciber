@@ -1,6 +1,6 @@
-"""Geolocalización offline de IPs con DB-IP City Lite (geoip2).
+"""Geolocalización offline de IPs con DB-IP City Lite / GeoLite2 (geoip2).
 
-No realiza ninguna consulta externa: lee la base de datos .mmdb local."""
+No realiza ninguna consulta externa: lee la base de datos .mmdb local oficial."""
 
 import ipaddress
 import logging
@@ -35,14 +35,14 @@ def locate(ip):
         return None
     try:
         r = _get_reader().city(ip)
-        if r.location.latitude is None:
-            return None
-        return {
-            'country': r.country.name,
-            'country_code': r.country.iso_code,
-            'city': r.city.name,
-            'lat': float(r.location.latitude),
-            'lon': float(r.location.longitude),
-        }
-    except Exception:  # noqa: BLE001
-        return None
+        if r.location.latitude is not None and r.location.longitude is not None:
+            return {
+                'country': r.country.name or 'Desconocido',
+                'country_code': r.country.iso_code or 'XX',
+                'city': r.city.name or '',
+                'lat': float(r.location.latitude),
+                'lon': float(r.location.longitude),
+            }
+    except Exception as exc:  # noqa: BLE001
+        log.debug("No se pudo ubicar IP %s: %s", ip, exc)
+    return None

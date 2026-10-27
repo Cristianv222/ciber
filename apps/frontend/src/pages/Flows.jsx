@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import api from '../api/client.js'
-import { PageHeader, LabelChip } from '../components/ui.jsx'
+import { PageHeader, LabelChip, LiveBadge } from '../components/ui.jsx'
 import { IconSearch, IconClose } from '../components/icons.jsx'
+import { useFlowsSocket } from '../hooks/useFlowsSocket.js'
 
 const IDENTITY = ['src_ip', 'src_port', 'dst_ip', 'dst_port', 'protocol', 'timestamp', 'label']
 const PIPELINE = ['attack_type', 'confidence', 'detector_stage', 'cvss_score', 'action_taken', 'processed_at']
@@ -87,21 +88,35 @@ export default function Flows() {
 
   const pages = Math.max(1, Math.ceil(count / pageSize))
 
+  const { connected } = useFlowsSocket((msg) => {
+    if (page === 1 && !search) {
+      if (msg.type === 'new_flow') {
+        setRows((prev) => [msg.flow, ...prev].slice(0, pageSize))
+        setCount((c) => c + 1)
+      } else if (msg.type === 'flow_updated') {
+        setRows((prev) => prev.map((f) => (f.id === msg.flow.id ? msg.flow : f)))
+      }
+    }
+  })
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <PageHeader
         title="Flujos de red"
         subtitle={`${count.toLocaleString()} flujos capturados · haz clic en una fila para ver las 78 métricas`}
         right={
-          <form onSubmit={onSearch} className="relative">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"><IconSearch width={15} height={15} /></span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar IP o etiqueta"
-              className="field pl-8 pr-3 py-1.5 text-sm w-60"
-            />
-          </form>
+          <div className="flex items-center gap-3">
+            <LiveBadge connected={connected} />
+            <form onSubmit={onSearch} className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"><IconSearch width={15} height={15} /></span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar IP o etiqueta"
+                className="field pl-8 pr-3 py-1.5 text-sm w-60"
+              />
+            </form>
+          </div>
         }
       />
 
