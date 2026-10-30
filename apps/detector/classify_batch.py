@@ -1,17 +1,19 @@
 """Clasificador por LOTES del histórico de flujos (offline, directo a la BD).
 
-Clasifica millones de flujos 'unlabeled' de forma eficiente, SIN pasar por la API
-ni por XMPP: lee bloques grandes, predice vectorizado con la cascada y hace UPDATE
-masivo en PostgreSQL. Pensado para etiquetar un dataset histórico grande (p. ej.
-2 semanas de captura) en horas en vez de semanas.
+Clasifica/re-clasifica millones de flujos de forma eficiente, SIN API ni XMPP:
+lee bloques grandes, predice vectorizado con la cascada (XGBoost + CNN-LSTM /
+Autoencoder) y hace UPDATE masivo. Hace VACUUM periódico para controlar el bloat
+(filas muertas) y no llenar el disco.
 
-Conserva todos los datos: solo rellena label / attack_type / confidence /
-detector_stage / processed_at de los flujos que estaban sin clasificar.
+Modos:
+  - Por defecto: clasifica solo los flujos nuevos (label = 'unlabeled').
+  - RECLASSIFY_ALL=true: re-clasifica TODA la tabla con los modelos reales
+    (paginación por id). Útil para etiquetar un histórico con la cascada completa.
 
-Uso (en el servidor):
-    docker compose run --rm detector python classify_batch.py
-    # o con un tamaño de lote distinto:
-    docker compose run --rm -e CLASSIFY_BATCH_SIZE=20000 detector python classify_batch.py
+Uso (en el servidor, con los mismos flags de prod y montando los modelos):
+    docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml \
+      run --rm -v /opt/apps/ciber/models:/models:ro \
+      -e RECLASSIFY_ALL=true detector python classify_batch.py
 """
 
 import logging
@@ -33,6 +35,19 @@ def _env(name, default=None):
     return v if v not in (None, "") else default
 
 
+def _bool(v):
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _vacuum(conn, analyze=False):
+    cmd = "VACUUM ANALYZE flows" if analyze else "VACUUM flows"
+    log.info("Ejecutando %s (control de bloat)…", cmd)
+    conn.autocommit = True
+    with conn.cursor() as cur:
+        cur.execute(cmd)
+    conn.autocommit = False
+
+
 def main():
     models_dir = _env("MODELS_DIR", "/models")
     thresholds = {
@@ -41,8 +56,9 @@ def main():
         "cnn": float(_env("CNN_THRESHOLD", "0.5")),
     }
     batch_size = int(_env("CLASSIFY_BATCH_SIZE", "10000"))
+    reclassify_all = _bool(_env("RECLASSIFY_ALL", "false"))
+    vacuum_every = int(_env("CLASSIFY_VACUUM_EVERY", "3000000"))
 
-    # Carga la cascada (falla rápido si faltan modelos → entrena primero)
     cascade = Cascade(models_dir, thresholds)
     feats = cascade.features
     col_sql = ", ".join(feats)
@@ -56,33 +72,46 @@ def main():
     )
     conn.autocommit = False
 
-    # Cuántos quedan por clasificar (para mostrar progreso)
     with conn.cursor() as cur:
-        cur.execute("SELECT count(*) FROM flows WHERE label = 'unlabeled'")
+        if reclassify_all:
+            cur.execute("SELECT count(*) FROM flows")
+        else:
+            cur.execute("SELECT count(*) FROM flows WHERE label = 'unlabeled'")
         pending = cur.fetchone()[0]
-    log.info("Flujos sin clasificar: %d. Lote=%d.", pending, batch_size)
+    log.info("A clasificar: %d flujos (reclassify_all=%s, lote=%d, VACUUM cada %d).",
+             pending, reclassify_all, batch_size, vacuum_every)
 
     total = 0
+    since_vacuum = 0
+    last_id = 0
     start = time.time()
 
     while True:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                f"SELECT id, {col_sql} FROM flows WHERE label = 'unlabeled' "
-                f"ORDER BY id LIMIT %s",
-                (batch_size,),
-            )
+            if reclassify_all:
+                cur.execute(
+                    f"SELECT id, {col_sql} FROM flows WHERE id > %s ORDER BY id LIMIT %s",
+                    (last_id, batch_size),
+                )
+            else:
+                cur.execute(
+                    f"SELECT id, {col_sql} FROM flows WHERE label = 'unlabeled' "
+                    f"ORDER BY id LIMIT %s",
+                    (batch_size,),
+                )
             rows = cur.fetchall()
         if not rows:
             break
 
         ids = [r["id"] for r in rows]
+        if reclassify_all:
+            last_id = ids[-1]
+
         X = np.array(
             [[float(r.get(c, 0.0) or 0.0) for c in feats] for r in rows],
             dtype=float,
         )
 
-        # Predicción vectorizada (todo el lote de una vez)
         proba = cascade.xgb.predict_proba(X)
         cnn_p = ae_err = None
         if cascade.scaler is not None and (cascade.cnn is not None or cascade.ae is not None):
@@ -122,12 +151,18 @@ def main():
         conn.commit()
 
         total += len(rows)
+        since_vacuum += len(rows)
+
+        if since_vacuum >= vacuum_every:
+            _vacuum(conn)
+            since_vacuum = 0
+
         elapsed = max(time.time() - start, 1e-6)
         rate = total / elapsed
-        remaining = max(pending - total, 0)
-        eta_min = (remaining / rate / 60) if rate > 0 else 0
+        eta_min = (max(pending - total, 0) / rate / 60) if rate > 0 else 0
         log.info("Clasificados %d/%d  (%.0f flujos/s, ETA ~%.0f min)", total, pending, rate, eta_min)
 
+    _vacuum(conn, analyze=True)
     conn.close()
     log.info("TERMINADO. Flujos clasificados en esta corrida: %d", total)
 
