@@ -35,9 +35,6 @@ services:
   ejabberd:
     restart: always
 
-  grafana:
-    restart: always
-
   frontend:
     restart: always
 

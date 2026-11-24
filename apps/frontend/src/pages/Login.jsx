@@ -56,11 +56,12 @@ export default function Login() {
       />
 
       <div ref={cardRef} className="card w-full max-w-sm p-8">
-        <div className="flex items-center gap-2.5 mb-1">
-          <span className="h-2 w-2 rounded-full bg-ok animate-breathe" />
-          <span className="font-semibold tracking-tightest text-[15px]">
-            CIBER<span className="text-muted font-normal"> / NIDS</span>
-          </span>
+        <div className="flex items-center gap-3 mb-2">
+          <img src="/ares-icon-512.png" alt="ARES" className="h-11 w-11 rounded-xl shadow-lg" />
+          <div>
+            <div className="font-semibold tracking-tightest text-xl leading-none">ARES</div>
+            <div className="text-[10.5px] text-accent font-medium tracking-[0.18em] uppercase mt-1.5">Seguridad de red</div>
+          </div>
         </div>
         <p className="text-sm text-muted mb-7">Sistema autónomo de monitoreo y respuesta</p>
 
@@ -88,7 +89,7 @@ export default function Login() {
 
           {error && <p className="text-xs text-threat">{error}</p>}
 
-          <button type="submit" disabled={loading} className="btn btn-primary w-full disabled:opacity-50">
+          <button type="submit" disabled={loading} className="btn btn-accent w-full disabled:opacity-50">
             {loading ? 'Verificando…' : 'Ingresar'}
           </button>
         </form>

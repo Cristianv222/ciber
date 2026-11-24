@@ -18,7 +18,6 @@ SERVICE_CONTAINERS = [
     ('ciber_redis', 'Redis'),
     ('ciber_backend', 'Backend / API'),
     ('ciber_ejabberd', 'Servidor XMPP (ejabberd)'),
-    ('ciber_grafana', 'Grafana'),
     ('ciber_detector', 'Agente Detector'),
     ('ciber_decision', 'Agente Decisión'),
     ('ciber_response', 'Agente Respuesta'),

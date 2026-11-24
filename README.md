@@ -24,7 +24,7 @@ La solución se compone del siguiente flujo de datos y componentes:
        ┌─────────────────────────────┼─────────────────────────────┐
        ▼                             ▼                             ▼
 ┌──────────────┐          ┌────────────────────┐      ┌─────────────────────────┐
-│   Grafana    │          │   Backend Django   │      │ Sistema Agentes (SPADE) │
+│Frontend React│          │   Backend Django   │      │ Sistema Agentes (SPADE) │
 │ (Dashboards) │          │ (REST API & Admin) │      │ - Detector (ML)         │
 └──────────────┘          └────────────────────┘      │ - Tomador de Decisiones │
                                                       │ - Agente de Respuesta   │
@@ -38,7 +38,7 @@ La solución se compone del siguiente flujo de datos y componentes:
 1. **Infraestructura Base y Backend**
    - **PostgreSQL 16**: Base de datos relacional para el almacenamiento de los flujos de red enriquecidos con las ~80 características estándar de datasets como CIC-IDS2017 / CIC-IDS2018.
    - **Django Backend (`apps/backend`)**: API REST (Django REST Framework), Panel de Administración (`Django Admin`) y capa ORM para la gestión de flujos, agentes y políticas de seguridad.
-   - **Grafana**: Dashboard interactivo para la visualización del tráfico en tiempo real, monitoreo de métricas e indicadores de anomalías.
+   - **Frontend React (`apps/frontend`)**: Panel propio para la visualización del tráfico en tiempo real, clasificación de ataques, navegación web y estado del sistema.
 
 2. **Aplicaciones y Agentes (Fases Posteriores - `apps/`)**
    - `apps/cicflowmeter`: Módulo encargado de la captura continua de tráfico y generación de flujos.
@@ -77,9 +77,9 @@ La solución se compone del siguiente flujo de datos y componentes:
    ```
 
 5. **Acceso a los servicios:**
+   - **Frontend (panel)**: `http://localhost:5173`
    - **Backend API REST**: `http://localhost:8000/api/flows/`
    - **Django Admin**: `http://localhost:8000/admin/`
-   - **Grafana**: `http://localhost:3000` (Usuario inicial: `admin`)
    - **PostgreSQL**: `localhost:5432` (Base de datos: `netflows`, Usuario: `tesis`)
    - **ejabberd (XMPP)**: `localhost:5222` (c2s) · Admin web: `http://localhost:5280/admin`
 
@@ -152,7 +152,7 @@ Los servicios están organizados por **perfiles** de compose para arrancar solo 
 
 | Perfil | Servicios | Cuándo |
 |--------|-----------|--------|
-| *(base)* | postgres, redis, backend, ejabberd, grafana | siempre |
+| *(base)* | postgres, redis, backend, ejabberd, frontend | siempre |
 | `training` | trainer | a demanda, para entrenar modelos |
 | `ingest` | cicflowmeter | captura de tráfico |
 | `agents` | detector, decision, response | pipeline de detección/respuesta |

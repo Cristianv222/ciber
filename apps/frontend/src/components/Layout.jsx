@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useTheme } from '../theme/ThemeContext.jsx'
@@ -17,10 +18,29 @@ const nav = [
   { to: '/sistema', label: 'Sistema', Icon: IconServer },
 ]
 
+const IconChevron = ({ open }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+    style={{ transform: open ? 'none' : 'rotate(180deg)', transition: 'transform 200ms' }}>
+    <path d="M15 18l-6-6 6-6" />
+  </svg>
+)
+
 export default function Layout() {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const navigate = useNavigate()
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('ares_sidebar_collapsed') === '1' } catch { return false }
+  })
+
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      const n = !c
+      try { localStorage.setItem('ares_sidebar_collapsed', n ? '1' : '0') } catch (_) {}
+      return n
+    })
+  }
 
   function doLogout() {
     logout()
@@ -29,64 +49,78 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex bg-bg">
-      <aside className="w-60 shrink-0 border-r border-line bg-surface/70 backdrop-blur-xl flex flex-col sticky top-0 h-screen">
-        <div className="px-5 py-5">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-ok/60 animate-breathe" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-ok" />
-            </span>
-            <span className="font-semibold tracking-tightest text-[15px]">
-              CIBER<span className="text-muted font-normal"> / NIDS</span>
-            </span>
-          </div>
-          <p className="text-xs text-muted mt-1 ml-[18px]">Monitoreo autónomo de red</p>
+      <aside
+        className={`${collapsed ? 'w-[76px]' : 'w-60'} shrink-0 bg-rail text-rail-fg border-r border-rail-line
+          flex flex-col sticky top-0 h-screen transition-[width] duration-200 ease-out`}
+      >
+        {/* Logo ARES (variante según el tema para que se vea sobre la barra) */}
+        <div className={`flex items-center ${collapsed ? 'justify-center px-2' : 'px-5'} py-5 h-[92px]`}>
+          {collapsed ? (
+            <img src={theme === 'light' ? '/ares-mark-dark.png' : '/ares-mark.png'} alt="ARES" className="h-9 w-auto" />
+          ) : (
+            <img src={theme === 'light' ? '/ares-full-dark.png' : '/ares-full.png'} alt="ARES" className="h-[72px] w-auto mx-auto" />
+          )}
         </div>
 
-        <nav className="flex-1 px-3 space-y-0.5">
+        <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
           {nav.map(({ to, label, Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
+              title={collapsed ? label : undefined}
               className={({ isActive }) =>
-                `group flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
+                `group relative flex items-center ${collapsed ? 'justify-center' : ''} gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
                   isActive
-                    ? 'bg-surface2 text-fg'
-                    : 'text-muted hover:text-fg hover:bg-surface2/60'
+                    ? 'bg-rail-active text-accent'
+                    : 'text-rail-muted hover:text-rail-fg hover:bg-rail-surface'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <span className={isActive ? 'text-fg' : 'text-muted group-hover:text-fg'}>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r bg-accent" />
+                  )}
+                  <span className={isActive ? 'text-accent' : 'text-rail-muted group-hover:text-rail-fg'}>
                     <Icon />
                   </span>
-                  {label}
+                  {!collapsed && label}
                 </>
               )}
             </NavLink>
           ))}
         </nav>
 
-        <div className="p-3 border-t border-line space-y-1">
+        <div className="p-3 border-t border-rail-line space-y-1">
           <button
             onClick={toggle}
-            className="btn btn-ghost w-full justify-start text-muted"
-            aria-label="Cambiar tema"
+            className={`w-full flex items-center ${collapsed ? 'justify-center' : 'justify-start'} gap-3 px-3 py-2 rounded-lg text-sm text-rail-muted hover:text-rail-fg hover:bg-rail-surface transition-colors`}
+            title={theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
           >
             {theme === 'dark' ? <IconSun /> : <IconMoon />}
-            <span>{theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}</span>
+            {!collapsed && <span>{theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}</span>}
           </button>
 
-          <div className="flex items-center justify-between gap-2 px-3 pt-2">
-            <div className="min-w-0">
-              <div className="text-[11px] text-muted uppercase tracking-wide">Sesión</div>
-              <div className="text-sm truncate">{user?.username}</div>
-            </div>
+          <button
+            onClick={toggleCollapsed}
+            className={`w-full flex items-center ${collapsed ? 'justify-center' : 'justify-start'} gap-3 px-3 py-2 rounded-lg text-sm text-rail-muted hover:text-rail-fg hover:bg-rail-surface transition-colors`}
+            title={collapsed ? 'Expandir' : 'Colapsar'}
+          >
+            <IconChevron open={!collapsed} />
+            {!collapsed && <span>Colapsar</span>}
+          </button>
+
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} gap-2 px-3 pt-2`}>
+            {!collapsed && (
+              <div className="min-w-0">
+                <div className="text-[11px] text-rail-muted uppercase tracking-wide">Sesión</div>
+                <div className="text-sm truncate text-rail-fg">{user?.username}</div>
+              </div>
+            )}
             <button
               onClick={doLogout}
-              className="btn p-2 text-muted hover:text-threat"
+              className="p-2 rounded-lg text-rail-muted hover:text-threat hover:bg-rail-surface transition-colors"
               aria-label="Cerrar sesión"
               title="Cerrar sesión"
             >

@@ -13,6 +13,17 @@ export default {
         fg: 'rgb(var(--fg) / <alpha-value>)',
         'fg-soft': 'rgb(var(--fg-soft) / <alpha-value>)',
         muted: 'rgb(var(--muted) / <alpha-value>)',
+        // Marca (teal del logo ARES)
+        accent: 'rgb(var(--accent) / <alpha-value>)',
+        brand: 'rgb(var(--brand) / <alpha-value>)',
+        // Barra lateral oscura (constante en ambos temas)
+        rail: 'rgb(var(--rail-bg) / <alpha-value>)',
+        'rail-surface': 'rgb(var(--rail-surface) / <alpha-value>)',
+        'rail-line': 'rgb(var(--rail-border) / <alpha-value>)',
+        'rail-fg': 'rgb(var(--rail-fg) / <alpha-value>)',
+        'rail-fg-soft': 'rgb(var(--rail-fg-soft) / <alpha-value>)',
+        'rail-muted': 'rgb(var(--rail-muted) / <alpha-value>)',
+        'rail-active': 'rgb(var(--rail-active) / <alpha-value>)',
         // Estados
         threat: '#ef4444',
         warn: '#f59e0b',
@@ -37,10 +48,15 @@ export default {
           '0%,100%': { opacity: '0.35' },
           '50%': { opacity: '1' },
         },
+        fade: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
       },
       animation: {
         'fade-up': 'fade-up 400ms cubic-bezier(0.23, 1, 0.32, 1) both',
         breathe: 'breathe 2.4s ease-in-out infinite',
+        fade: 'fade 200ms ease-out both',
       },
     },
   },

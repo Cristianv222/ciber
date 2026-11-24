@@ -4,7 +4,7 @@
   el signal post_save → el WebSocket retransmite el flujo nuevo en vivo.
 - DbSink   (alto rendimiento): INSERT directo en PostgreSQL con psycopg2. Más
   rápido, pero NO dispara el signal, así que los flujos nuevos no salen por el
-  WebSocket (solo se verían vía Grafana, que consulta la BD directamente).
+  WebSocket (los flujos solo se verían consultando la BD directamente).
 """
 
 import logging

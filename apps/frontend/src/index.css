@@ -10,35 +10,57 @@
 :root {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Marca ARES */
+  --brand: 4 205 212;         /* teal del logo #04cdd4 */
 }
 
-/* Tema oscuro (por defecto) */
+/* Tema oscuro (por defecto) — toda la paleta en teal-navy (color del logo) */
 :root,
 :root[data-theme='dark'] {
-  --bg: 9 9 11;
-  --surface: 18 18 20;
-  --surface-2: 25 25 28;
-  --border: 36 36 40;
-  --border-strong: 46 46 51;
-  --fg: 237 237 239;
-  --fg-soft: 196 196 202;
-  --muted: 131 131 141;
+  --bg: 8 13 18;              /* #080d12 teal-navy profundo */
+  --surface: 14 21 28;        /* #0e151c tarjetas */
+  --surface-2: 20 29 37;
+  --border: 30 43 53;
+  --border-strong: 42 57 69;
+  --fg: 233 238 241;
+  --fg-soft: 188 198 206;
+  --muted: 120 135 147;
+  --accent: 4 205 212;        /* teal brillante del logo */
+  /* Barra lateral: misma familia, un punto más clara/azulada para distinguirse */
+  --rail-bg: 11 24 33;        /* #0b1821 */
+  --rail-surface: 18 33 43;
+  --rail-border: 29 47 59;
+  --rail-fg: 234 239 241;
+  --rail-fg-soft: 176 189 196;
+  --rail-muted: 116 132 143;
+  --rail-active: 19 41 52;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px -14px rgba(0, 0, 0, 0.7);
-  --ring: rgba(237, 237, 239, 0.14);
+  --ring: rgba(4, 205, 212, 0.30);
   color-scheme: dark;
 }
 
+/* Tema claro — tono CREMA cálido, suave a la vista (no blanco puro) */
 :root[data-theme='light'] {
-  --bg: 250 250 250;
-  --surface: 255 255 255;
-  --surface-2: 244 244 245;
-  --border: 232 232 236;
-  --border-strong: 216 216 222;
-  --fg: 24 24 27;
-  --fg-soft: 63 63 70;
-  --muted: 113 113 122;
-  --shadow: 0 1px 2px rgba(24, 24, 27, 0.05), 0 12px 28px -16px rgba(24, 24, 27, 0.18);
-  --ring: rgba(24, 24, 27, 0.12);
+  --bg: 244 241 233;          /* crema #f4f1e9 */
+  --surface: 251 249 243;     /* crema claro para tarjetas #fbf9f3 */
+  --surface-2: 237 233 223;   /* crema apagado #ede9df */
+  --border: 223 217 204;
+  --border-strong: 207 200 185;
+  --fg: 38 36 31;             /* casi negro cálido #26241f */
+  --fg-soft: 78 73 65;
+  --muted: 125 118 107;
+  --accent: 6 150 159;        /* teal más profundo para contraste sobre crema */
+  /* Barra lateral: teal pálido, contrasta con la crema cálida y usa el color del logo */
+  --rail-bg: 222 235 237;     /* #deebed teal pálido */
+  --rail-surface: 211 228 230;
+  --rail-border: 195 215 218;
+  --rail-fg: 26 42 48;
+  --rail-fg-soft: 60 82 88;
+  --rail-muted: 100 122 128;
+  --rail-active: 200 226 229;
+  --shadow: 0 1px 2px rgba(55, 48, 35, 0.06), 0 14px 30px -16px rgba(55, 48, 35, 0.22);
+  --ring: rgba(6, 150, 159, 0.28);
   color-scheme: light;
 }
 
@@ -77,6 +99,10 @@ body {
   .btn-primary { background: rgb(var(--fg)); color: rgb(var(--bg)); }
   .btn-primary:hover { opacity: 0.9; }
 
+  /* CTA de marca (teal) */
+  .btn-accent { background: rgb(var(--accent)); color: #ffffff; }
+  .btn-accent:hover { filter: brightness(1.08); }
+
   .btn-ghost {
     background: rgb(var(--surface-2));
     color: rgb(var(--fg));
@@ -94,7 +120,7 @@ body {
   .field::placeholder { color: rgb(var(--muted)); }
   .field:focus {
     outline: none;
-    border-color: rgb(var(--border-strong));
+    border-color: rgb(var(--accent));
     box-shadow: 0 0 0 3px var(--ring);
   }
 
@@ -102,3 +128,24 @@ body {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 }
+
+/* Campo de estrellas (fondo del globo en modo oscuro) */
+.starfield {
+  background-color: rgb(var(--bg));
+  background-image:
+    radial-gradient(1px 1px at 25% 15%, rgba(255,255,255,.85), transparent),
+    radial-gradient(1px 1px at 70% 42%, rgba(255,255,255,.55), transparent),
+    radial-gradient(1.6px 1.6px at 42% 72%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1px 1px at 85% 80%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1px 1px at 12% 62%, rgba(180,230,235,.6), transparent),
+    radial-gradient(1px 1px at 60% 10%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1.4px 1.4px at 50% 50%, rgba(255,255,255,.45), transparent),
+    radial-gradient(1px 1px at 90% 28%, rgba(180,230,235,.55), transparent),
+    radial-gradient(1px 1px at 33% 88%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1px 1px at 8% 30%, rgba(255,255,255,.5), transparent);
+  background-repeat: repeat;
+  background-size: 300px 300px, 250px 250px, 350px 350px, 200px 200px, 320px 320px, 280px 280px, 240px 240px, 360px 360px, 270px 270px, 310px 310px;
+  animation: twinkle 6s ease-in-out infinite;
+}
+@keyframes twinkle { 0%,100% { opacity: .7 } 50% { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .starfield { animation: none } }

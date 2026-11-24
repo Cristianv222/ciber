@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell,
   AreaChart, Area, CartesianGrid,
@@ -6,6 +6,7 @@ import {
 import api from '../api/client.js'
 import { useFlowsSocket } from '../hooks/useFlowsSocket.js'
 import { PageHeader, StatTile, LabelChip, LiveBadge } from '../components/ui.jsx'
+import CandleChart from '../components/CandleChart.jsx'
 
 const BENIGN = new Set(['benign', 'BENIGN', 'unlabeled'])
 const isThreat = (l) => l && !BENIGN.has(l)
@@ -22,9 +23,14 @@ const tooltipStyle = {
 export default function Dashboard() {
   const [summary, setSummary] = useState({ total_flows: 0, labels_distribution: [] })
   const [flows, setFlows] = useState([])
-  const [rate, setRate] = useState([])
-  const [incoming, setIncoming] = useState(0)
+  const [timeline, setTimeline] = useState([])
   const [sys, setSys] = useState({ services: [] })
+  const tlTimer = useRef(null)
+
+  const loadTimeline = () =>
+    api.get('/api/flows/timeline/', { params: { buckets: 30 } })
+      .then((r) => setTimeline(r.data.series || []))
+      .catch(() => {})
 
   async function loadAll() {
     const [s, f] = await Promise.all([
@@ -33,6 +39,7 @@ export default function Dashboard() {
     ])
     setSummary(s.data)
     setFlows(f.data.results || f.data)
+    loadTimeline()
   }
   useEffect(() => { loadAll().catch(() => {}) }, [])
   useEffect(() => {
@@ -41,21 +48,25 @@ export default function Dashboard() {
     const id = setInterval(go, 6000)
     return () => clearInterval(id)
   }, [])
-
+  // Mantiene la gráfica de flujos actualizándose aunque el WebSocket esté callado
   useEffect(() => {
-    const id = setInterval(() => {
-      setRate((prev) => [...prev, { t: new Date().toLocaleTimeString().slice(3), n: incoming }].slice(-30))
-      setIncoming(0)
-    }, 2000)
+    const id = setInterval(() => loadTimeline(), 10000)
     return () => clearInterval(id)
-  }, [incoming])
+  }, [])
+
+  // Refresco de la serie temporal al llegar flujos (con debounce)
+  const bumpTimeline = () => {
+    clearTimeout(tlTimer.current)
+    tlTimer.current = setTimeout(() => loadTimeline(), 1500)
+  }
 
   const { connected } = useFlowsSocket((msg) => {
     if (msg.type === 'new_flow') {
-      setIncoming((n) => n + 1)
       setFlows((prev) => [msg.flow, ...prev].slice(0, 60))
       setSummary((s) => ({ ...s, total_flows: (s.total_flows || 0) + 1 }))
+      bumpTimeline()
     } else if (msg.type === 'flow_updated') {
+      bumpTimeline()
       setFlows((prev) => prev.map((f) => (f.id === msg.flow.id ? msg.flow : f)))
       const lbl = msg.flow?.label
       if (lbl && lbl !== 'unlabeled') {
@@ -80,6 +91,17 @@ export default function Dashboard() {
     [dist]
   )
   const benignCount = (summary.total_flows || 0) - threatCount
+
+  // Flujos acumulados en el tiempo (sembrado con el histórico de la BD; sube en
+  // vivo y, si para el tráfico, la línea se queda donde llegó).
+  const flowArea = useMemo(() => {
+    let cb = 0, ct = 0
+    return (timeline || []).map((s) => {
+      cb += s.benign || 0
+      ct += s.threat || 0
+      return { i: s.i, benignos: cb, amenazas: ct, total: cb + ct }
+    })
+  }, [timeline])
 
   const topAttackers = useMemo(() => {
     const m = {}
@@ -111,26 +133,49 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* Flujos acumulados en el tiempo — en vivo, sembrado con el histórico */}
+      <div className="card p-5 mb-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm font-medium">Flujos clasificados en el tiempo</div>
+          <div className="flex items-center gap-3 text-[11px] text-muted">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-ok" /> benignos</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-threat" /> amenazas</span>
+          </div>
+        </div>
+        <div className="h-52">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={flowArea} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="gBen" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="gThr" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="rgb(var(--border))" vertical={false} />
+              <XAxis dataKey="i" stroke="rgb(var(--muted))" fontSize={10} tickLine={false} axisLine={false} />
+              <YAxis stroke="rgb(var(--muted))" fontSize={10} allowDecimals={false} tickLine={false} axisLine={false} width={34} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: 'rgb(var(--border-strong))' }} />
+              <Area type="monotone" dataKey="benignos" name="Benignos" stackId="1" stroke="#22c55e" fill="url(#gBen)" strokeWidth={1.75} isAnimationActive={false} />
+              <Area type="monotone" dataKey="amenazas" name="Amenazas" stackId="1" stroke="#ef4444" fill="url(#gThr)" strokeWidth={1.75} isAnimationActive={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-2 gap-4 mb-5">
         <div className="card p-5">
-          <div className="text-sm font-medium mb-4">Ingesta en vivo · flujos / 2s</div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={rate}>
-                <defs>
-                  <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b8b94" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#8b8b94" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgb(var(--border))" vertical={false} />
-                <XAxis dataKey="t" stroke="rgb(var(--muted))" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="rgb(var(--muted))" fontSize={11} allowDecimals={false} tickLine={false} axisLine={false} width={24} />
-                <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: 'rgb(var(--border-strong))' }} />
-                <Area type="monotone" dataKey="n" stroke="#9a9aa2" fill="url(#g)" strokeWidth={1.75} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm font-medium">Evolución benigno vs. amenazas</div>
+            <div className="flex items-center gap-3 text-[11px] text-muted">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-ok" /> más benigno</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-threat" /> más amenazas</span>
+            </div>
           </div>
+          <CandleChart series={timeline} />
         </div>
 
         <div className="card p-5">
@@ -191,36 +236,69 @@ export default function Dashboard() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-line text-sm font-medium">Últimos flujos</div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted">
-              <tr className="border-b border-line">
-                <th className="text-left font-medium px-5 py-2.5">Origen</th>
-                <th className="text-left font-medium px-5 py-2.5">Destino</th>
-                <th className="text-left font-medium px-5 py-2.5">Clasificación</th>
-                <th className="text-left font-medium px-5 py-2.5">Confianza</th>
-                <th className="text-left font-medium px-5 py-2.5">CVSS</th>
-                <th className="text-left font-medium px-5 py-2.5">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {flows.map((f) => (
-                <tr key={f.id} className="border-b border-line/60 last:border-0 hover:bg-surface2/50 transition-colors">
-                  <td className="px-5 py-2.5 font-mono text-xs text-fg-soft">{f.src_ip}:{f.src_port}</td>
-                  <td className="px-5 py-2.5 font-mono text-xs text-fg-soft">{f.dst_ip}:{f.dst_port}</td>
-                  <td className="px-5 py-2.5"><LabelChip label={f.label} /></td>
-                  <td className="px-5 py-2.5 text-xs tabular-nums">{f.confidence != null ? `${(f.confidence * 100).toFixed(0)}%` : '—'}</td>
-                  <td className="px-5 py-2.5 text-xs tabular-nums">{f.cvss_score ?? '—'}</td>
-                  <td className="px-5 py-2.5 text-xs text-muted">{f.action_taken ?? '—'}</td>
-                </tr>
-              ))}
-              {flows.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-10 text-center text-muted">Sin flujos todavía</td></tr>
-              )}
-            </tbody>
-          </table>
+        <div className="px-5 py-3.5 border-b border-line text-sm font-medium flex items-center justify-between">
+          <span>Tráfico en vivo</span>
+          <span className="text-xs text-muted tabular-nums">{flows.length} flujos recientes</span>
         </div>
+        <div className="divide-y divide-line/50 max-h-[560px] overflow-y-auto">
+          {flows.map((f) => <FlowRow key={f.id} f={f} />)}
+          {flows.length === 0 && (
+            <div className="px-5 py-12 text-center text-muted text-sm">Esperando flujos…</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Severidad por CVSS v4.0
+function cvssMeta(v) {
+  if (v == null) return null
+  if (v >= 9) return { label: 'Crítico', cls: 'bg-threat/15 text-threat border-threat/30' }
+  if (v >= 7) return { label: 'Alto', cls: 'bg-threat/10 text-threat border-threat/25' }
+  if (v >= 4) return { label: 'Medio', cls: 'bg-warn/10 text-warn border-warn/25' }
+  return { label: 'Bajo', cls: 'bg-ok/10 text-ok border-ok/25' }
+}
+
+function FlowRow({ f }) {
+  const threat = isThreat(f.label)
+  const classified = f.label && f.label !== 'unlabeled'
+  const accent = threat ? 'bg-threat' : classified ? 'bg-ok' : 'bg-muted'
+  const conf = f.confidence
+  const cvss = cvssMeta(f.cvss_score)
+
+  return (
+    <div className="relative pl-6 pr-5 py-3 flex items-center gap-4 hover:bg-surface2/40 transition-colors animate-fade-up">
+      <span className={`absolute left-0 top-0 bottom-0 w-[3px] ${accent}`} />
+
+      {/* origen -> destino + clasificación */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 font-mono text-xs">
+          <span className="text-fg-soft truncate">{f.src_ip}<span className="text-muted">:{f.src_port}</span></span>
+          <span className="text-muted shrink-0">→</span>
+          <span className="text-muted truncate">{f.dst_ip}<span className="opacity-60">:{f.dst_port}</span></span>
+        </div>
+        <div className="mt-2 flex items-center gap-2.5">
+          <LabelChip label={f.label} />
+          {conf != null && (
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-16 rounded-full bg-surface2 overflow-hidden">
+                <div className={`h-full rounded-full ${threat ? 'bg-threat' : 'bg-ok'}`} style={{ width: `${Math.round(conf * 100)}%` }} />
+              </div>
+              <span className="text-[11px] text-muted tabular-nums">{Math.round(conf * 100)}%</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CVSS + acción */}
+      <div className="text-right shrink-0 w-28">
+        {cvss ? (
+          <span className={`chip border tabular-nums ${cvss.cls}`}>{f.cvss_score} · {cvss.label}</span>
+        ) : (
+          <span className="text-xs text-muted">sin CVSS</span>
+        )}
+        <div className="text-[11px] text-muted mt-1.5 truncate">{f.action_taken || (classified ? 'sin acción' : 'analizando…')}</div>
       </div>
     </div>
   )

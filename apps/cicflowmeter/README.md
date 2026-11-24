@@ -17,7 +17,7 @@ tenga qué analizar.
   dispara el signal `post_save` → **el WebSocket retransmite el flujo nuevo en
   vivo**. Recomendado para ver el sistema funcionando en tiempo real.
 - **`INGEST_MODE=db`**: `INSERT` directo con psycopg2. Más rápido para tráfico
-  alto, pero **no** dispara el WebSocket (los flujos solo se ven vía Grafana).
+  alto, pero **no** dispara el WebSocket (los flujos solo se ven consultando la BD).
 
 ## Uso
 

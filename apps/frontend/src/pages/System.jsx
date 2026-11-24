@@ -4,7 +4,6 @@ import { PageHeader } from '../components/ui.jsx'
 import { IconExternal } from '../components/icons.jsx'
 
 const LINKS = [
-  { label: 'Grafana', href: 'http://localhost:3000', desc: 'Dashboards de métricas' },
   { label: 'Django Admin', href: 'http://localhost:8000/admin/', desc: 'Gestión de datos' },
   { label: 'API REST', href: 'http://localhost:8000/api/flows/', desc: 'Endpoints navegables' },
   { label: 'Agente Detector', href: 'http://localhost:10000/spade', desc: 'Dashboard SPADE' },

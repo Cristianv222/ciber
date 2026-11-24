@@ -1,0 +1,6 @@
+# Dependencias de los scripts de evaluación de la tesis (métricas y prueba de hipótesis)
+numpy>=1.26.0
+pandas>=2.2.0
+scikit-learn>=1.4.0   # confusion_matrix (evaluar_metricas.py)
+matplotlib>=3.8.0     # matrices de confusión (evaluar_metricas.py)
+scipy>=1.11.0         # shapiro, ttest_rel, wilcoxon (prueba_hipotesis.py)
